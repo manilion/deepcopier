@@ -1,4 +1,4 @@
-package util
+package deepcopier
 
 import (
 	"database/sql"

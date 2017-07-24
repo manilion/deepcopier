@@ -1,4 +1,4 @@
-package deepcopier
+package util
 
 import (
 	"database/sql"
@@ -325,22 +325,6 @@ func TestField_EmptyInterface(t *testing.T) {
 		srcForce = &SrcForce{Rel: rel}
 	)
 
-	//
-	// Without force
-	//
-
-	dst := &Dst{}
-	assert.Nil(t, Copy(src).To(dst))
-	assert.Nil(t, dst.Rel)
-
-	dst = &Dst{}
-	assert.Nil(t, Copy(dst).From(src))
-	assert.Nil(t, dst.Rel)
-
-	//
-	// With force
-	//
-
 	dstForce := &DstForce{}
 	assert.Nil(t, Copy(src).To(dstForce))
 	assert.Equal(t, src.Rel, dstForce.Rel)
@@ -352,33 +336,6 @@ func TestField_EmptyInterface(t *testing.T) {
 
 func TestField_NullTypes(t *testing.T) {
 	type (
-		Src struct {
-			PQNullTimeValid      pq.NullTime
-			PQNullTimeValidPtr   pq.NullTime
-			PQNullTimeInvalid    pq.NullTime
-			PQNullTimeInvalidPtr pq.NullTime
-
-			NullStringValid      null.String
-			NullStringValidPtr   null.String
-			NullStringInvalid    null.String
-			NullStringInvalidPtr null.String
-
-			SQLNullStringValid      sql.NullString
-			SQLNullStringValidPtr   sql.NullString
-			SQLNullStringInvalid    sql.NullString
-			SQLNullStringInvalidPtr sql.NullString
-
-			SQLNullInt64Valid      sql.NullInt64
-			SQLNullInt64ValidPtr   sql.NullInt64
-			SQLNullInt64Invalid    sql.NullInt64
-			SQLNullInt64InvalidPtr sql.NullInt64
-
-			SQLNullBoolValid      sql.NullBool
-			SQLNullBoolValidPtr   sql.NullBool
-			SQLNullBoolInvalid    sql.NullBool
-			SQLNullBoolInvalidPtr sql.NullBool
-		}
-
 		SrcForce struct {
 			PQNullTimeValid      pq.NullTime `deepcopier:"force"`
 			PQNullTimeValidPtr   pq.NullTime `deepcopier:"force"`
@@ -404,33 +361,6 @@ func TestField_NullTypes(t *testing.T) {
 			SQLNullBoolValidPtr   sql.NullBool `deepcopier:"force"`
 			SQLNullBoolInvalid    sql.NullBool `deepcopier:"force"`
 			SQLNullBoolInvalidPtr sql.NullBool `deepcopier:"force"`
-		}
-
-		Dst struct {
-			PQNullTimeValid      time.Time
-			PQNullTimeValidPtr   *time.Time
-			PQNullTimeInvalid    time.Time
-			PQNullTimeInvalidPtr *time.Time
-
-			NullStringValid      string
-			NullStringValidPtr   *string
-			NullStringInvalid    string
-			NullStringInvalidPtr *string
-
-			SQLNullStringValid      string
-			SQLNullStringValidPtr   *string
-			SQLNullStringInvalid    string
-			SQLNullStringInvalidPtr *string
-
-			SQLNullInt64Valid      int64
-			SQLNullInt64ValidPtr   *int64
-			SQLNullInt64Invalid    int64
-			SQLNullInt64InvalidPtr *int64
-
-			SQLNullBoolValid      bool
-			SQLNullBoolValidPtr   *bool
-			SQLNullBoolInvalid    bool
-			SQLNullBoolInvalidPtr *bool
 		}
 
 		DstForce struct {
@@ -463,33 +393,6 @@ func TestField_NullTypes(t *testing.T) {
 
 	now := time.Now()
 
-	src := &Src{
-		PQNullTimeValid:      pq.NullTime{Valid: true, Time: now},
-		PQNullTimeValidPtr:   pq.NullTime{Valid: true, Time: now},
-		PQNullTimeInvalid:    pq.NullTime{Valid: false, Time: now},
-		PQNullTimeInvalidPtr: pq.NullTime{Valid: false, Time: now},
-
-		NullStringValid:      null.NewString("hello", true),
-		NullStringValidPtr:   null.NewString("hello", true),
-		NullStringInvalid:    null.NewString("hello", false),
-		NullStringInvalidPtr: null.NewString("hello", false),
-
-		SQLNullStringValid:      sql.NullString{Valid: true, String: "hello"},
-		SQLNullStringValidPtr:   sql.NullString{Valid: true, String: "hello"},
-		SQLNullStringInvalid:    sql.NullString{Valid: false, String: "hello"},
-		SQLNullStringInvalidPtr: sql.NullString{Valid: false, String: "hello"},
-
-		SQLNullInt64Valid:      sql.NullInt64{Valid: true, Int64: 1},
-		SQLNullInt64ValidPtr:   sql.NullInt64{Valid: true, Int64: 1},
-		SQLNullInt64Invalid:    sql.NullInt64{Valid: false, Int64: 1},
-		SQLNullInt64InvalidPtr: sql.NullInt64{Valid: false, Int64: 1},
-
-		SQLNullBoolValid:      sql.NullBool{Valid: true, Bool: true},
-		SQLNullBoolValidPtr:   sql.NullBool{Valid: true, Bool: true},
-		SQLNullBoolInvalid:    sql.NullBool{Valid: false, Bool: true},
-		SQLNullBoolInvalidPtr: sql.NullBool{Valid: false, Bool: true},
-	}
-
 	srcForce := &SrcForce{
 		PQNullTimeValid:      pq.NullTime{Valid: true, Time: now},
 		PQNullTimeValidPtr:   pq.NullTime{Valid: true, Time: now},
@@ -516,38 +419,6 @@ func TestField_NullTypes(t *testing.T) {
 		SQLNullBoolInvalid:    sql.NullBool{Valid: false, Bool: true},
 		SQLNullBoolInvalidPtr: sql.NullBool{Valid: false, Bool: true},
 	}
-
-	//
-	// Without force
-	//
-
-	dst := &Dst{}
-
-	assert.Nil(t, Copy(src).To(dst))
-	assert.Zero(t, dst.PQNullTimeValid)
-	assert.Nil(t, dst.PQNullTimeValidPtr)
-	assert.Zero(t, dst.PQNullTimeInvalid)
-	assert.Nil(t, dst.PQNullTimeInvalidPtr)
-
-	assert.Zero(t, dst.NullStringValid)
-	assert.Nil(t, dst.NullStringValidPtr)
-	assert.Zero(t, dst.NullStringInvalid)
-	assert.Nil(t, dst.NullStringInvalidPtr)
-
-	assert.Zero(t, dst.SQLNullStringValid)
-	assert.Nil(t, dst.SQLNullStringValidPtr)
-	assert.Zero(t, dst.SQLNullStringInvalid)
-	assert.Nil(t, dst.SQLNullStringInvalidPtr)
-
-	assert.Zero(t, dst.SQLNullInt64Valid)
-	assert.Nil(t, dst.SQLNullInt64ValidPtr)
-	assert.Zero(t, dst.SQLNullInt64Invalid)
-	assert.Nil(t, dst.SQLNullInt64InvalidPtr)
-
-	assert.Zero(t, dst.SQLNullBoolValid)
-	assert.Nil(t, dst.SQLNullBoolValidPtr)
-	assert.Zero(t, dst.SQLNullBoolInvalid)
-	assert.Nil(t, dst.SQLNullBoolInvalidPtr)
 
 	//
 	// With force

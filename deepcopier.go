@@ -1,4 +1,4 @@
-package deepcopier
+package util
 
 import (
 	"database/sql/driver"
@@ -16,8 +16,6 @@ const (
 	ContextOptionName = "context"
 	// SkipOptionName is the skip option name for struct tag.
 	SkipOptionName = "skip"
-	// ForceOptionName is the skip option name for struct tag.
-	ForceOptionName = "force"
 )
 
 type (
@@ -74,6 +72,10 @@ func process(dst interface{}, src interface{}, args ...Options) error {
 		srcMethodNames = getMethodNames(src)
 	)
 
+	if v, ok := dst.(reflect.Value); ok {
+		dstValue = reflect.Indirect(v)
+	}
+
 	if len(args) > 0 {
 		options = args[0]
 	}
@@ -119,11 +121,8 @@ func process(dst interface{}, src interface{}, args ...Options) error {
 			continue
 		}
 
-		// Force option for empty interfaces and nullable types
-		_, force := tagOptions[ForceOptionName]
-
 		// Valuer -> ptr
-		if isNullableType(srcFieldType.Type) && dstFieldValue.Kind() == reflect.Ptr && force {
+		if isNullableType(srcFieldType.Type) && dstFieldValue.Kind() == reflect.Ptr {
 			v, _ := srcFieldValue.Interface().(driver.Valuer).Value()
 			if v == nil {
 				continue
@@ -136,32 +135,56 @@ func process(dst interface{}, src interface{}, args ...Options) error {
 
 			if valueType.AssignableTo(dstFieldType.Type.Elem()) {
 				dstFieldValue.Set(ptr)
+				continue
 			}
-
-			continue
 		}
 
 		// Valuer -> value
 		if isNullableType(srcFieldType.Type) {
-			if force {
-				v, _ := srcFieldValue.Interface().(driver.Valuer).Value()
-				if v == nil {
-					continue
-				}
+			v, _ := srcFieldValue.Interface().(driver.Valuer).Value()
+			if v == nil {
+				continue
+			}
 
-				rv := reflect.ValueOf(v)
-				if rv.Type().AssignableTo(dstFieldType.Type) {
-					dstFieldValue.Set(rv)
+			rv := reflect.ValueOf(v)
+			if rv.Type().AssignableTo(dstFieldType.Type) {
+				dstFieldValue.Set(rv)
+				continue
+			}
+		}
+
+		// recursive copy for struct
+		if indirectType(srcFieldType.Type).Kind() == reflect.Struct &&
+			indirectType(dstFieldType.Type).Kind() == reflect.Struct {
+
+			var value reflect.Value
+
+			if dstFieldType.Type.Kind() == reflect.Ptr {
+				value = reflect.New(dstFieldType.Type.Elem()).Elem()
+			} else {
+				value = reflect.New(dstFieldType.Type).Elem()
+			}
+
+			if indirectType(srcFieldType.Type) != indirectType(dstFieldType.Type) {
+				err := Copy(srcFieldValue.Interface()).To(value)
+				if err != nil {
+					return err
 				}
+			} else {
+				value.Set(reflect.Indirect(srcFieldValue))
+			}
+
+			if dstFieldType.Type.Kind() == reflect.Ptr {
+				dstFieldValue.Set(value.Addr())
+			} else {
+				dstFieldValue.Set(value)
 			}
 
 			continue
 		}
 
 		if dstFieldValue.Kind() == reflect.Interface {
-			if force {
-				dstFieldValue.Set(srcFieldValue)
-			}
+			dstFieldValue.Set(srcFieldValue)
 			continue
 		}
 
@@ -178,6 +201,7 @@ func process(dst interface{}, src interface{}, args ...Options) error {
 		// Other types
 		if srcFieldType.Type.AssignableTo(dstFieldType.Type) {
 			dstFieldValue.Set(srcFieldValue)
+			continue
 		}
 	}
 
@@ -324,4 +348,11 @@ func getFieldNames(instance interface{}) []string {
 // isNullableType returns true if the given type is a nullable one.
 func isNullableType(t reflect.Type) bool {
 	return t.ConvertibleTo(reflect.TypeOf((*driver.Valuer)(nil)).Elem())
+}
+
+func indirectType(t reflect.Type) reflect.Type {
+	if t.Kind() == reflect.Ptr {
+		return t.Elem()
+	}
+	return t
 }
